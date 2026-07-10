@@ -424,3 +424,4 @@ ntf.Parent=p.PlayerGui
 
 wait(4)
 ntf:Destroy()
+--wow
