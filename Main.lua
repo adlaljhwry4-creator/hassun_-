@@ -1,9 +1,8 @@
 print("Loading...")
 
-local UI = {}
-
-function UI:Start()
-    print("GUI Loaded")
+for i = 1, 100 do
+    print("Loading "..i.."%")
+    task.wait(0.05)
 end
 
-UI:Start()
+print("Finished!")
