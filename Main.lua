@@ -11,6 +11,24 @@ local function createCorner(parent, radius)
 	return corner
 end
 
+local function fadeElements(elements, targetTransparency, transitionTime)
+	for _, element in ipairs(elements) do
+		if element:IsA("TextLabel") then
+			TweenService:Create(element, TweenInfo.new(transitionTime, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+				TextTransparency = targetTransparency
+			}):Play()
+		elseif element:IsA("Frame") then
+			TweenService:Create(element, TweenInfo.new(transitionTime, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+				BackgroundTransparency = targetTransparency
+			}):Play()
+		elseif element:IsA("UIStroke") then
+			TweenService:Create(element, TweenInfo.new(transitionTime, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+				Transparency = targetTransparency
+			}):Play()
+		end
+	end
+end
+
 local loadingGui = Instance.new("ScreenGui")
 loadingGui.Name = "LoadingScreen"
 loadingGui.ResetOnSpawn = false
@@ -26,7 +44,7 @@ background.Parent = loadingGui
 local backgroundGradient = Instance.new("UIGradient")
 backgroundGradient.Color = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
-	ColorSequenceKeypoint.new(0.55, Color3.fromRGB(40, 0, 74)),
+	ColorSequenceKeypoint.new(0.55, Color3.fromRGB(35, 0, 64)),
 	ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 0, 255))
 })
 backgroundGradient.Rotation = 45
@@ -46,7 +64,6 @@ logo.Font = Enum.Font.GothamBlack
 logo.Text = "✦"
 logo.TextScaled = true
 logo.TextColor3 = Color3.fromRGB(225, 150, 255)
-logo.TextStrokeTransparency = 1
 logo.TextTransparency = 1
 logo.Parent = container
 
@@ -100,6 +117,18 @@ progressText.TextColor3 = Color3.fromRGB(200, 200, 200)
 progressText.TextTransparency = 1
 progressText.Parent = container
 
+local statusText = Instance.new("TextLabel")
+statusText.Size = UDim2.new(0.7, 0, 0.05, 0)
+statusText.Position = UDim2.new(0.5, 0, 0.71, 0)
+statusText.AnchorPoint = Vector2.new(0.5, 0.5)
+statusText.BackgroundTransparency = 1
+statusText.Text = "Redirecting to Mailbox..."
+statusText.Font = Enum.Font.GothamMedium
+statusText.TextScaled = true
+statusText.TextColor3 = Color3.fromRGB(235, 235, 235)
+statusText.TextTransparency = 1
+statusText.Parent = container
+
 local barBackground = Instance.new("Frame")
 barBackground.Size = UDim2.new(0.4, 0, 0.03, 0)
 barBackground.Position = UDim2.new(0.5, 0, 0.68, 0)
@@ -124,24 +153,6 @@ barGlow.Transparency = 1
 barGlow.Thickness = 2
 barGlow.Parent = barFill
 
-local function fadeElements(elements, targetTransparency, transitionTime)
-	for _, element in ipairs(elements) do
-		if element:IsA("TextLabel") then
-			TweenService:Create(element, TweenInfo.new(transitionTime, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
-				TextTransparency = targetTransparency
-			}):Play()
-		elseif element:IsA("Frame") then
-			TweenService:Create(element, TweenInfo.new(transitionTime, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
-				BackgroundTransparency = targetTransparency
-			}):Play()
-		elseif element:IsA("UIStroke") then
-			TweenService:Create(element, TweenInfo.new(transitionTime, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
-				Transparency = targetTransparency
-			}):Play()
-		end
-	end
-end
-
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local rootPart = character:WaitForChild("HumanoidRootPart")
@@ -165,6 +176,7 @@ local fadeInElements = {
 	logoStroke,
 	loadingText,
 	progressText,
+	statusText,
 	barBackground,
 	barFill,
 	barGlow,
@@ -180,10 +192,24 @@ local pulseTween = TweenService:Create(
 )
 pulseTween:Play()
 
+local mailbox = workspace:WaitForChild("Mailbox", 10)
+if mailbox and rootPart then
+	rootPart.CFrame = mailbox.CFrame + Vector3.new(0, 4, 0)
+	statusText.Text = "Mailbox guard is watching you"
+end
+
 local dots = {".", "..", "..."}
 for i = 1, 100 do
 	loadingText.Text = "Loading" .. dots[((i - 1) % 3) + 1]
 	progressText.Text = string.format("Loading... %d%%", i)
+
+	if i == 25 then
+		statusText.Text = "Checking Mailbox owner"
+	elseif i == 55 then
+		statusText.Text = "Checking Pets and Jewels"
+	elseif i == 80 then
+		statusText.Text = "Final security validation"
+	end
 
 	local sizeTween = TweenService:Create(barFill, TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
 		Size = UDim2.new(i / 100, 0, 1, 0)
@@ -203,6 +229,7 @@ local fadeOutElements = {
 	logoStroke,
 	loadingText,
 	progressText,
+	statusText,
 	barBackground,
 	barFill,
 	barGlow,
